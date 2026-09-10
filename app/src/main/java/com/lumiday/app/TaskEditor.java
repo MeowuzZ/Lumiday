@@ -29,7 +29,9 @@ final class TaskEditor extends Dialog {
     this.existing = existing;
     this.restored = restored;
     JSONObject t = existing == null ? new JSONObject() : existing;
-    date = LocalDate.parse(t.optString("date", host.selected.toString()));
+    date =
+        LocalDate.parse(
+            t.optString("date", (host.tab == 1 ? host.selected : LocalDate.now()).toString()));
     start = t.optString("time");
     end = t.optString("endTime");
     priority = t.optInt("priority");

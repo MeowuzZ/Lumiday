@@ -156,7 +156,7 @@ public class SmokeInstrumentation extends Instrumentation {
               a.tab = i;
               a.show();
             }
-            a.tab = 0;
+            a.tab = 1;
             a.show();
             a.toggleCalendar();
           });
@@ -219,9 +219,80 @@ public class SmokeInstrumentation extends Instrumentation {
       Thread.sleep(500);
       screenshot("editor-v2.png");
       runOnMainSync(() -> a.editor.dismiss());
+      runOnMainSync(
+          () -> {
+            a.tab = 0;
+            a.selected = LocalDate.now().plusDays(9);
+            a.show();
+            check(a.calendar == null, "today has no calendar");
+            check(a.tasks().size() == 3, "today ignores selected agenda date");
+            a.tab = 2;
+            a.show();
+            check(a.calendar == null, "quadrants have no calendar");
+            check(a.body.getChildCount() == 2, "quadrants are two rows");
+            for (int i = 0; i < 4; i++) {
+              LinearLayout pair = (LinearLayout) a.body.getChildAt(i / 2);
+              pair.getChildAt(i % 2).performClick();
+              check(a.editor.priority == 3 - i, "quadrant preselects priority");
+              a.editor.name.setText(new String[] {"完成重要事项", "规划下周", "回复消息", "整理桌面"}[i]);
+              a.editor.submit();
+              check(
+                  s.tasks().optJSONObject(s.tasks().length() - 1).optInt("priority") == 3 - i,
+                  "quadrant priority saved");
+            }
+          });
+      Thread.sleep(200);
+      screenshot("quadrants-v21.png");
+      runOnMainSync(
+          () -> {
+            a.tab = 3;
+            a.show();
+          });
+      Thread.sleep(400);
+      screenshot("settings-intro-v21.png");
+      runOnMainSync(
+          () -> {
+            check(
+                a.settingsScene.progress == 0
+                    && a.settingsScene.buttons.getVisibility() == View.INVISIBLE,
+                "settings initially only sentence");
+            check(
+                a.settingsScene.hero.getContentDescription().equals("时间只属于你"),
+                "sentence meaning unchanged");
+            SettingsScene scene = a.settingsScene;
+            long now = SystemClock.uptimeMillis();
+            MotionEvent down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 100, 100, 0);
+            scene.dispatchTouchEvent(down);
+            down.recycle();
+            MotionEvent move =
+                MotionEvent.obtain(
+                    now, now + 20, MotionEvent.ACTION_MOVE, 100, scene.getHeight() * .7f, 0);
+            scene.dispatchTouchEvent(move);
+            move.recycle();
+            MotionEvent up =
+                MotionEvent.obtain(
+                    now, now + 40, MotionEvent.ACTION_UP, 100, scene.getHeight() * .7f, 0);
+            scene.dispatchTouchEvent(up);
+            up.recycle();
+          });
+      Thread.sleep(400);
+      runOnMainSync(
+          () ->
+              check(
+                  a.settingsScene.progress > .9f && a.settingsScene.buttons.getAlpha() > .9f,
+                  "down swipe reveals buttons"));
+      screenshot("settings-actions-v21.png");
+      runOnMainSync(
+          () -> {
+            a.tab = 0;
+            a.show();
+          });
+      Thread.sleep(200);
+      screenshot("home-v21.png");
       result.putString(
           "stream",
-          "PASS: v1/v2/v3 backups, legacy archive, all-day/start/range editor, invalid ranges,"
+          "PASS: today-only, quadrant add priorities, immersive sentence, swipe reveal, v1/v2/v3"
+              + " backups, legacy archive, all-day/start/range editor, invalid ranges,"
               + " cancellation, chronological order, four icon tabs, calendar animation, draggable"
               + " overlay, persistence\n");
       exitCode = Activity.RESULT_OK;

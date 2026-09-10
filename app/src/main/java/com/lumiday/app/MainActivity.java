@@ -196,8 +196,21 @@ public class MainActivity extends Activity {
     }
   }
 
+  SettingsScene settingsScene;
+
   void show() {
     animating = false;
+    if (tab == 3) {
+      settingsScene = new SettingsScene(this);
+      setContentView(settingsScene);
+      getWindow().getInsetsController().hide(WindowInsets.Type.systemBars());
+      getWindow()
+          .getInsetsController()
+          .setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+      return;
+    }
+    settingsScene = null;
+    getWindow().getInsetsController().show(WindowInsets.Type.systemBars());
     root = vertical();
     root.setBackgroundColor(BG);
     setContentView(root);
@@ -216,15 +229,11 @@ public class MainActivity extends Activity {
     brand.setLetterSpacing(.18f);
     titles.addView(brand);
     space(titles, 6);
-    TextView title =
-        text(
-            new String[] {selected.equals(LocalDate.now()) ? "今天" : "当天任务", "日程", "优先级", "设置"}[tab],
-            29,
-            INK);
+    TextView title = text(new String[] {"今天", "日程", "四象限", "设置"}[tab], 29, INK);
     title.setTypeface(null, Typeface.BOLD);
     titles.addView(title);
     weighted(header, titles);
-    if (tab < 3) {
+    if (tab == 1) {
       TextView today =
           button(
               "回到今天",
@@ -236,7 +245,8 @@ public class MainActivity extends Activity {
       header.addView(today);
     }
     root.addView(header);
-    if (tab < 3) calendar();
+    calendar = null;
+    if (tab == 1) calendar();
     stage = new FrameLayout(this);
     ScrollView scroll = new ScrollView(this);
     scroll.setClipToPadding(false);
@@ -249,7 +259,7 @@ public class MainActivity extends Activity {
     if (tab == 0) today();
     else if (tab == 1) agenda();
     else if (tab == 2) quadrants();
-    else settings();
+
     navigation = row();
     navigation.setPadding(dp(24), dp(10), dp(24), dp(10));
     String[] names = {"tasks", "calendar", "grid", "settings"};
@@ -348,7 +358,8 @@ public class MainActivity extends Activity {
     ArrayList<JSONObject> list = new ArrayList<>();
     for (int i = 0; i < store.tasks().length(); i++) {
       JSONObject t = store.tasks().optJSONObject(i);
-      if (selected.toString().equals(t.optString("date"))) list.add(t);
+      if ((tab == 0 ? LocalDate.now() : selected).toString().equals(t.optString("date")))
+        list.add(t);
     }
     list.sort(
         Comparator.comparingInt(
@@ -407,7 +418,7 @@ public class MainActivity extends Activity {
   }
 
   int priorityColor(int p) {
-    return new int[] {GREEN, 0xff7893b1, 0xffc3a163, 0xffc77d74}[Math.max(0, Math.min(p, 3))];
+    return new int[] {0xff68a67b, 0xff638bd5, 0xffe2a050, 0xffd86c6c}[Math.max(0, Math.min(p, 3))];
   }
 
   void task(LinearLayout parent, JSONObject t, boolean timeline) {
@@ -437,6 +448,7 @@ public class MainActivity extends Activity {
         timeline
             ? t.optString("note")
             : timeLabel(t) + (t.optString("note").isEmpty() ? "" : " · " + t.optString("note"));
+    if (tab == 2) subtitle = t.optString("date") + " · " + timeLabel(t);
     if (!subtitle.isEmpty()) {
       TextView note = text(subtitle, 12, MUTED);
       note.setMaxLines(2);
@@ -485,15 +497,63 @@ public class MainActivity extends Activity {
   }
 
   void quadrants() {
-    String[] labels = {"高优先级", "中优先级", "低优先级", "未设优先级"};
-    for (int p = 3; p >= 0; p--) {
-      final int priority = p;
-      long count = tasks().stream().filter(t -> t.optInt("priority") == priority).count();
-      section(labels[3 - p], count + " 项");
-      LinearLayout box = card(body);
-      for (JSONObject t : tasks()) if (t.optInt("priority") == p) task(box, t, false);
-      if (count == 0) empty(box, "暂无任务");
+    body.setPadding(dp(12), dp(10), dp(12), dp(88));
+    String[] labels = {"重要且紧急", "重要不紧急", "不重要但紧急", "不重要不紧急"};
+    String[] numbers = {"Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ"};
+    int height = Math.max(dp(235), (getResources().getDisplayMetrics().heightPixels - dp(270)) / 2);
+    for (int r = 0; r < 2; r++) {
+      LinearLayout pair = row();
+      pair.setGravity(Gravity.TOP);
+      body.addView(pair, new LinearLayout.LayoutParams(-1, height));
+      for (int col = 0; col < 2; col++) {
+        int index = r * 2 + col;
+        final int priority = 3 - index;
+        LinearLayout box = vertical();
+        box.setPadding(dp(12), dp(14), dp(10), dp(8));
+        box.setBackground(shape(Color.WHITE, 24));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1);
+        lp.setMargins(dp(5), dp(5), dp(5), dp(5));
+        pair.addView(box, lp);
+        box.setContentDescription(labels[index] + "，点击添加");
+        box.setOnClickListener(v -> addPriority(priority));
+        TextView title = text(numbers[index] + "  " + labels[index], 13, priorityColor(priority));
+        title.setTypeface(null, Typeface.BOLD);
+        title.setMinHeight(dp(44));
+        title.setOnClickListener(v -> addPriority(priority));
+        box.addView(title);
+        ScrollView listScroll = new ScrollView(this);
+        listScroll.setVerticalScrollBarEnabled(false);
+        LinearLayout list = vertical();
+        list.setOnClickListener(v -> addPriority(priority));
+        listScroll.setFillViewport(true);
+        listScroll.addView(list);
+        box.addView(listScroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        int count = 0;
+        for (int i = 0; i < store.tasks().length(); i++) {
+          JSONObject task = store.tasks().optJSONObject(i);
+          if (task.optInt("priority") == priority) {
+            task(list, task, false);
+            count++;
+          }
+        }
+        if (count == 0) {
+          TextView empty = button("＋", () -> addPriority(priority));
+          empty.setTextColor(priorityColor(priority));
+          empty.setTextSize(28);
+          list.addView(empty, new LinearLayout.LayoutParams(-1, -1));
+        }
+        TextView add = button("＋", () -> addPriority(priority));
+        add.setTextColor(priorityColor(priority));
+        add.setContentDescription("添加" + labels[index] + "任务");
+        if (count > 0) box.addView(add);
+      }
     }
+  }
+
+  void addPriority(int priority) {
+    editor = new TaskEditor(this, null, null);
+    editor.priority = priority;
+    editor.show();
   }
 
   void editTask(JSONObject task) {
@@ -552,32 +612,6 @@ public class MainActivity extends Activity {
               }
             })
         .show();
-  }
-
-  void settings() {
-    section("本地数据", "只属于你");
-    LinearLayout c = card(body);
-    c.addView(button("导出备份", this::export));
-    c.addView(button("从备份恢复", this::importBackup));
-    c.addView(
-        button(
-            "导出恢复前快照",
-            () -> {
-              exportSnapshot = true;
-              export();
-            }));
-    empty(c, "更新、卸载或换机前，请先导出备份。旧版数据可直接导入。");
-    section("界面", "");
-    LinearLayout layout = card(body);
-    layout.addView(
-        button(
-            "重置添加按钮位置",
-            () -> {
-              getSharedPreferences("layout", MODE_PRIVATE).edit().clear().apply();
-              Toast.makeText(this, "已恢复到右下角", Toast.LENGTH_SHORT).show();
-            }));
-    empty(layout, "长按或直接拖动添加按钮，可调整它在内容区域的位置。");
-    empty(card(body), "Lumiday 2.0.0\nAndroid 16+ · 完全离线");
   }
 
   void calendar() {
