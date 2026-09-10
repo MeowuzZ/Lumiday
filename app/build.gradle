@@ -1,7 +1,7 @@
 plugins { id 'com.android.application' }
 android {
  namespace 'com.lumiday.app'
- compileSdk 34
- defaultConfig { applicationId 'com.lumiday.app'; minSdk 26; targetSdk 34; versionCode 1; versionName '1.0.0'; testInstrumentationRunner 'com.lumiday.app.SmokeInstrumentation' }
+ compileSdk 36
+ defaultConfig { applicationId 'com.lumiday.app'; minSdk 36; targetSdk 36; versionCode 2; versionName '2.0.0'; testInstrumentationRunner 'com.lumiday.app.SmokeInstrumentation' }
  compileOptions { sourceCompatibility JavaVersion.VERSION_11; targetCompatibility JavaVersion.VERSION_11 }
 }

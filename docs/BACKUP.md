@@ -1,29 +1,27 @@
-# 数据备份契约
+# 备份格式 v3
 
-当前 schemaVersion 为 2。日期采用本地日历 `YYYY-MM-DD`，时间为 `HH:mm`，空字符串表示全天。习惯按用户选定日期累计计数；总打卡天数统计达到每日目标的日期，当前连续以选定日期为基准，若当天未完成则从前一天开始计算。修改目标会按新目标重新计算历史完成状态。
+当前 schemaVersion 为 3，兼容导入 v1 / v2。日期格式 `YYYY-MM-DD`，时间 `HH:mm`。
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tasks": [
-    {"id":"example-task","title":"读书","note":"读一章","date":"2026-09-09","time":"20:00","priority":2,"done":false}
+    {"id":"task-1","title":"全天待办","date":"2026-09-10","time":"","endTime":"","priority":0,"done":false},
+    {"id":"task-2","title":"开始时间","date":"2026-09-10","time":"09:00","endTime":"","priority":1,"done":false},
+    {"id":"task-3","title":"时间段","date":"2026-09-10","time":"14:00","endTime":"15:30","priority":2,"done":false}
   ],
-  "habits": [
-    {"id":"example-habit","title":"喝水","note":"记得补充水分","emoji":"💧","target":3,"unit":"杯","logs":{"2026-09-09":2}}
-  ]
+  "habits": []
 }
 ```
 
-priority：0 无，1 低，2 中，3 高。未设置 schemaVersion 按 v1 处理。v1 允许省略 id、habits 内 logs；读取时补齐 UUID 与空打卡映射。tasks / habits 数组以及标题、任务日期是必需字段。
+- 时间为空表示全天待办。只设置 time 表示仅开始时间；同时设置 endTime 表示同一天的时间段。
+- endTime 必须晚于 time；结束时间不能单独存在，不支持跨天时间段。
+- priority 为 0 无、1 低、2 中、3 高。
+- 没有 schemaVersion 按 v1 处理；旧版缺少 endTime 时按无结束时间处理。缺少 id 自动补齐 UUID。
+- 习惯模块已移除。旧版 habits 数据完整保留在本地文件和导出文件中，不显示、不继续打卡。新版无 habits 字段的备份也可导入。
 
-导入先完整解析与校验，再提示用户确认；解析失败、日期不合法、目标小于 1、计数为负、重复 ID、未来版本等均不替换原数据。导入限制 10 MB。恢复前保存 `before-restore.json`，只保留最近一次恢复前快照。
+先完整校验备份，再确认替换。未来版本、无效日期 / 时间段、重复 ID、负打卡计数等不会覆盖当前数据；导入文件上限为 10 MB。恢复前保存最近一次 `before-restore.json`，可在设置中导出。
 
-正常保存使用 Android AtomicFile：写临时文件、同步并提交；出现写入异常时回滚磁盘文件。所有业务数据位于应用私有目录，系统云备份关闭。
+正常数据写入采用 AtomicFile，持久化异常会恢复内存快照并提示错误。首次读取会在内存中适配旧版格式，之后成功保存时写出 v3。
 
-## 后续版本维护规则
-
-1. 保留 applicationId `com.lumiday.app` 和签名密钥；增加 versionCode。
-2. 数据格式变化必须提升 schemaVersion，添加从上一版到新版的显式迁移；保留旧格式测试样本。
-3. 禁止为处理解析错误直接清空文件。损坏文件必须保留供导出恢复。
-4. 发布前验证覆盖安装、旧备份导入、完整导出再导入、异常输入不改变现有数据。
-5. 当前自动兼容仅覆盖已定义的 v1 / v2；未知未来格式应拒绝读取，避免静默丢失数据。
+升级须保持 applicationId 和签名证书，递增 versionCode。应用内备份快照不能替代外部备份，卸载会一并删除。后续格式变化必须添加显式迁移及测试，不能保证未知未来格式的兼容。
