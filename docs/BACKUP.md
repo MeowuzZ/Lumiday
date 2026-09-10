@@ -1,26 +1,27 @@
-# 备份格式 v4
+# 备份格式 v5
 
-当前 schemaVersion 为 4，兼容导入 v1 / v2 / v3。日期格式 `YYYY-MM-DD`，时间 `HH:mm`。
+`schemaVersion: 5`，兼容 v1–v4。任务的 `date` 为开始日期；`endDate` 为结束日期，旧数据缺省为开始日期。
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tasks": [
-    {"id":"task-1","title":"全天待办","date":"2026-09-10","time":"","endTime":"","priority":0,"done":false},
-    {"id":"task-3","title":"时间段","date":"2026-09-10","time":"14:00","endTime":"15:30","priority":2,"done":false}
+    {"id":"a","title":"跨日待办","date":"2026-09-10","endDate":"2026-09-12","time":"","endTime":"","undated":false,"priority":3,"done":false},
+    {"id":"b","title":"跨夜日程","date":"2026-09-10","endDate":"2026-09-11","time":"23:00","endTime":"01:00","priority":1,"done":false},
+    {"id":"c","title":"无日期待办","date":"2026-09-10","endDate":"2026-09-10","time":"","endTime":"","undated":true,"priority":0,"done":false}
   ],
   "habits": []
 }
 ```
 
-- 时间为空表示全天待办。设置 time 时必须同时设置 endTime，表示同一天的时间段，结束可用 24:00。
-- endTime 必须晚于 time；结束时间不能单独存在，不支持跨天时间段。
-- priority 为 0 无、1 低、2 中、3 高。
-- 没有 schemaVersion 按 v1 处理；旧版仅开始时间任务迁移为全天，原时间保存在 legacyStartTime，详情可查看。缺少 id 自动补齐 UUID。
-- 习惯模块已移除。旧版 habits 数据完整保留在本地文件和导出文件中，不显示、不继续打卡。新版无 habits 字段的备份也可导入。
+- 日期格式 YYYY-MM-DD，时间 HH:mm，结束允许 24:00。同日结束须晚于开始，跨日结束日期不能早于开始。
+- 时间字段均为空表示全天；时间日程必须有完整起止时间。
+- `undated: true` 仅用于全天待办，内部 date 保留创建日。未完成时显示在今天，完成后按 `completedDate` 显示，不修改或复制原记录。
+- 有日期全天任务覆盖起止日；跨日时间任务按天裁切，00:00 结束的任务不在结束当天生成零长度图块。
+- 优先级 0 无 / 1 低 / 2 中 / 3 高。完成标记为 done。
+- v1–v3 仅开始时间任务转为全天，原值保存在 legacyStartTime；历史习惯数据保留在备份，不显示打卡功能。
+- 导入不应用“禁止新建过去时间”规则，因此历史记录可完整恢复。
 
-先完整校验备份，再确认替换。未来版本、无效日期 / 时间段、重复 ID、负打卡计数等不会覆盖当前数据；导入文件上限为 10 MB。恢复前保存最近一次 `before-restore.json`，可在设置中导出。
+导入先校验，再确认替换，保存 before-restore.json。未知未来版本、无效日期时间等拒绝导入；上限 10 MB。写入使用 AtomicFile，失败回滚内存数据。
 
-正常数据写入采用 AtomicFile，持久化异常会恢复内存快照并提示错误。首次读取会在内存中适配旧版格式，之后成功保存时写出 v4。
-
-升级须保持 applicationId 和签名证书，递增 versionCode。应用内备份快照不能替代外部备份，卸载会一并删除。后续格式变化必须添加显式迁移及测试，不能保证未知未来格式的兼容。
+升级须保持 applicationId 与签名，并递增 versionCode。卸载会删除应用内数据，外部导出备份需要用户自行保存。

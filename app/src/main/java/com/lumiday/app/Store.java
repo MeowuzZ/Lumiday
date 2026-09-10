@@ -22,7 +22,7 @@ final class Store {
     else
       data =
           new JSONObject()
-              .put("schemaVersion", 4)
+              .put("schemaVersion", 5)
               .put("tasks", new JSONArray())
               .put("habits", new JSONArray());
   }
@@ -30,7 +30,7 @@ final class Store {
   static JSONObject validate(String raw) throws Exception {
     JSONObject d = new JSONObject(raw);
     int v = d.optInt("schemaVersion", 1);
-    if (v < 1 || v > 4) throw new IOException("此备份版本不受支持，请使用更新版 Lumiday");
+    if (v < 1 || v > 5) throw new IOException("此备份版本不受支持，请使用更新版 Lumiday");
     JSONArray ts = d.getJSONArray("tasks");
     if (!d.has("habits")) d.put("habits", new JSONArray());
     JSONArray hs = d.getJSONArray("habits");
@@ -52,7 +52,8 @@ final class Store {
             o.put("endTime", "");
             t = "";
           }
-          validateTimes(t, o.optString("endTime", ""));
+          TaskDates.validate(o.optString("date"), o.optString("endDate", o.optString("date")), t, o.optString("endTime", ""));
+          if (o.optBoolean("undated") && !t.isEmpty()) throw new IOException("时间日程必须有日期");
           if (o.optInt("priority", 0) < 0 || o.optInt("priority", 0) > 3)
             throw new IOException("优先级无效");
         } else {
@@ -68,7 +69,7 @@ final class Store {
         }
       }
     }
-    return d.put("schemaVersion", 4);
+    return d.put("schemaVersion", 5);
   }
 
   static void validateTimes(String start, String end) throws IOException {

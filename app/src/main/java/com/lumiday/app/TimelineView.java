@@ -46,22 +46,40 @@ final class TimelineView extends android.widget.FrameLayout {
 
   final MainActivity host;
   final ArrayList<Slot> slots;
+  float hourHeight;
   final Paint paint = new Paint(3);
 
   TimelineView(MainActivity host, List<JSONObject> tasks) {
     super(host);
     this.host = host;
-    slots = arrange(tasks);
+    hourHeight = host.timelineHourHeight > 0 ? host.timelineHourHeight : host.dp(76);
+    java.util.ArrayList<JSONObject> clipped = new java.util.ArrayList<>();
+    for (JSONObject t : tasks) {
+      if (t.optString("time").isEmpty()) continue;
+      try {
+        JSONObject copy = new JSONObject(t.toString());
+        int from = TaskDates.from(t, host.selected), to = TaskDates.to(t, host.selected);
+        copy.put("time", String.format(java.util.Locale.ROOT, "%02d:%02d", from/60, from%60));
+        copy.put("endTime", String.format(java.util.Locale.ROOT, "%02d:%02d", to/60, to%60));
+        clipped.add(copy);
+      } catch (Exception e) { throw new IllegalStateException(e); }
+    }
+    slots = arrange(clipped);
+    for (Slot slot : slots) {
+      slot.lanes = Math.max(3, slot.lanes);
+      for (JSONObject original : tasks) if (original.optString("id").equals(slot.task.optString("id"))) slot.task = original;
+    }
     setWillNotDraw(false);
     for (Slot slot : slots) {
       TextView block =
           host.text(
               slot.task.optString("title") + "\n" + host.timeLabel(slot.task), 13, Color.WHITE);
       block.setGravity(Gravity.TOP);
+      block.setEllipsize(android.text.TextUtils.TruncateAt.END);
       block.setPadding(host.dp(6), host.dp(3), host.dp(4), 0);
-      block.setBackground(host.shape(host.priorityColor(slot.task.optInt("priority")), 5));
+      block.setBackground(host.shape(slot.task.optBoolean("done") ? pale(host.priorityColor(slot.task.optInt("priority"))) : host.priorityColor(slot.task.optInt("priority")), 5));
       if (slot.task.optBoolean("done")) {
-        block.setAlpha(.42f);
+
         block.setPaintFlags(block.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
       }
       block.setContentDescription(slot.task.optString("title") + " " + host.timeLabel(slot.task));
@@ -84,12 +102,16 @@ final class TimelineView extends android.widget.FrameLayout {
       float laneWidth = (w - host.dp(60)) / (float) s.lanes;
       LayoutParams p = (LayoutParams) getChildAt(i).getLayoutParams();
       p.leftMargin = host.dp(54) + Math.round(s.lane * laneWidth);
-      p.topMargin = host.dp(18) + Math.round(s.start * host.dp(76) / 60f);
+      p.topMargin = host.dp(18) + Math.round(s.start * hourHeight / 60f);
       p.width = Math.max(1, Math.round(laneWidth) - host.dp(3));
-      p.height = Math.max(1, Math.round((s.end - s.start) * host.dp(76) / 60f));
-      
+      p.height = Math.max(1, Math.round((s.end - s.start) * hourHeight / 60f));
+      ((TextView) getChildAt(i)).setMaxLines(Math.max(1, (p.height-host.dp(6)) / host.dp(17)));
     }
     super.onMeasure(widthSpec, heightSpec);
+  }
+
+  static int pale(int color) {
+    return Color.rgb((Color.red(color)+510)/3, (Color.green(color)+510)/3, (Color.blue(color)+510)/3);
   }
 
   @Override
@@ -97,7 +119,7 @@ final class TimelineView extends android.widget.FrameLayout {
     super.onDraw(canvas);
     paint.setTextSize(host.dp(11));
     for (int hour = 0; hour <= 24; hour++) {
-      float y = host.dp(18 + hour * 76);
+      float y = host.dp(18) + hour * hourHeight;
       paint.setColor(0xffdfe4dd);
       paint.setStrokeWidth(1);
       canvas.drawLine(host.dp(52), y, getWidth(), y, paint);

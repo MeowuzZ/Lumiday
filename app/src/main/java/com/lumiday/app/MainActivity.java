@@ -30,6 +30,21 @@ public class MainActivity extends Activity {
   int tab;
   float touchY;
 
+  final android.os.Handler dayHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+  LocalDate displayedDay = LocalDate.now();
+  final Runnable dayRefresh = new Runnable() {
+    public void run() {
+      if (!displayedDay.equals(LocalDate.now())) {
+        if (store != null && (editor == null || !editor.isShowing()) && calendarPopup == null) {
+          displayedDay = LocalDate.now(); show();
+        }
+      }
+      dayHandler.postDelayed(this, 1000);
+    }
+  };
+  @Override protected void onResume() { super.onResume(); dayHandler.post(dayRefresh); }
+  @Override protected void onPause() { dayHandler.removeCallbacks(dayRefresh); super.onPause(); }
+
   int dp(float n) {
     return Math.round(n * getResources().getDisplayMetrics().density);
   }
@@ -199,6 +214,7 @@ public class MainActivity extends Activity {
   SettingsScene settingsScene;
   boolean overview;
   TimelineView timeline;
+  float timelineHourHeight;
   android.app.Dialog detailsDialog;
   CalendarPopup calendarPopup;
 
@@ -258,7 +274,7 @@ public class MainActivity extends Activity {
     calendar = null;
     if (tab == 1 && !overview) calendar();
     stage = new FrameLayout(this);
-    ScrollView scroll = new ScrollView(this);
+    ScrollView scroll = new TimelineScroll(this);
     scroll.setClipToPadding(false);
     scroll.setVerticalScrollBarEnabled(false);
     body = vertical();
@@ -368,11 +384,11 @@ public class MainActivity extends Activity {
     ArrayList<JSONObject> list = new ArrayList<>();
     for (int i = 0; i < store.tasks().length(); i++) {
       JSONObject t = store.tasks().optJSONObject(i);
-      if ((tab == 0 ? LocalDate.now() : selected).toString().equals(t.optString("date")))
+      if (TaskDates.occurs(t, tab == 0 ? LocalDate.now() : selected))
         list.add(t);
     }
     list.sort(
-        Comparator.comparingInt(
+        Comparator.comparingInt((JSONObject t) -> TaskDates.rank(t)).thenComparingInt(
                 (JSONObject t) ->
                     t.optString("time").isEmpty()
                         ? -1
@@ -383,7 +399,9 @@ public class MainActivity extends Activity {
 
   String timeLabel(JSONObject t) {
     String start = t.optString("time"), end = t.optString("endTime");
-    return start.isEmpty() ? "全天" : start + (end.isEmpty() ? "" : " – " + end);
+    String span = TaskDates.end(t).isAfter(TaskDates.start(t)) ? " – " + t.optString("endDate") : "";
+    return start.isEmpty() ? (t.optBoolean("undated") ? "待办" : "全天" + span)
+        : start + " – " + (span.isEmpty() ? "" : t.optString("endDate") + " ") + end;
   }
 
   void section(String title, String detail) {
@@ -444,6 +462,7 @@ public class MainActivity extends Activity {
         v -> {
           JSONObject previous = snapshot();
           put(t, "done", !t.optBoolean("done"));
+          put(t, "completedDate", LocalDate.now().toString());
           persist(previous);
           show();
         });
@@ -484,7 +503,7 @@ public class MainActivity extends Activity {
       }
     if (count == 0) empty(allDay, "没有全天待办");
     timeline = new TimelineView(this, tasks());
-    body.addView(timeline, new LinearLayout.LayoutParams(-1, dp(24 * 76 + 36)));
+    body.addView(timeline, new LinearLayout.LayoutParams(-1, Math.round(timeline.hourHeight * 24 + dp(36))));
   }
 
   void taskDetails(JSONObject task) {
@@ -525,9 +544,10 @@ public class MainActivity extends Activity {
   void completeTask(JSONObject task) {
     int scrollY = stage.getChildAt(0).getScrollY();
     JSONObject previous = snapshot();
-    put(task, "done", true);
+    put(task, "done", !task.optBoolean("done"));
+    put(task, "completedDate", LocalDate.now().toString());
     if (persist(previous)) {
-      Toast.makeText(this, "任务已完成", Toast.LENGTH_SHORT).show();
+      Toast.makeText(this, task.optBoolean("done") ? "任务已完成" : "已恢复未完成", Toast.LENGTH_SHORT).show();
       show();
       stage.post(() -> stage.getChildAt(0).scrollTo(0, scrollY));
     }
@@ -606,15 +626,22 @@ public class MainActivity extends Activity {
       String start,
       String end,
       int priority) {
+    return saveTask(existing, title, note, date, start, end, priority, date, false);
+  }
+
+  boolean saveTask(JSONObject existing, String title, String note, String date, String start,
+      String end, int priority, String endDate, boolean undated) {
     try {
       JSONObject previous = snapshot();
       JSONObject t = existing == null ? new JSONObject() : findTask(existing.optString("id"));
-      Store.validateTimes(start, end);
+      TaskDates.validate(date, endDate, start, end);
       put(t, "title", title);
       put(t, "note", note);
       put(t, "date", date);
       put(t, "time", start);
       put(t, "endTime", end);
+      put(t, "endDate", endDate);
+      put(t, "undated", undated);
       put(t, "priority", priority);
       if (existing == null) {
         put(t, "id", UUID.randomUUID().toString());

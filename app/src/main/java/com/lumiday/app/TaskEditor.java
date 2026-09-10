@@ -18,7 +18,8 @@ final class TaskEditor extends Dialog {
   EditText name, note;
   LinearLayout content, modes, times, priorities;
   TextView dateButton, startButton, endButton, feedback;
-  LocalDate date;
+  LocalDate date, endDate;
+  boolean undated;
   String start = "", end = "";
   int mode, priority;
   final Bundle restored;
@@ -32,6 +33,8 @@ final class TaskEditor extends Dialog {
     date =
         LocalDate.parse(
             t.optString("date", (host.tab == 1 ? host.selected : LocalDate.now()).toString()));
+    endDate = LocalDate.parse(t.optString("endDate", date.toString()));
+    undated = t.optBoolean("undated", existing == null);
     start = t.optString("time");
     end = t.optString("endTime");
     priority = t.optInt("priority");
@@ -40,6 +43,8 @@ final class TaskEditor extends Dialog {
       date = LocalDate.parse(restored.getString("date"));
       start = restored.getString("start");
       end = restored.getString("end");
+      endDate = LocalDate.parse(restored.getString("endDate", date.toString()));
+      undated = restored.getBoolean("undated");
       mode = restored.getInt("mode");
       priority = restored.getInt("priority");
     }
@@ -73,7 +78,10 @@ final class TaskEditor extends Dialog {
                         host,
                         (v, y, m, d) -> {
                           date = LocalDate.of(y, m + 1, d);
+                          undated = false;
+                          if (endDate.isBefore(date)) endDate = date;
                           updateDate();
+                          renderModes();
                         },
                         date.getYear(),
                         date.getMonthValue() - 1,
@@ -153,11 +161,21 @@ final class TaskEditor extends Dialog {
   }
 
   void updateDate() {
-    dateButton.setText("日期    " + date + (date.equals(LocalDate.now()) ? "  · 今天" : ""));
+    dateButton.setText(mode == 0 && undated ? "开始日    未设置" : "开始日    " + date);
   }
 
   void chooseMode(int value) {
     mode = value;
+    if (mode == 1 && start.isEmpty()) {
+      LocalDateTime now = LocalDateTime.now().withSecond(0).withNano(0);
+      if (date.isBefore(now.toLocalDate())) date = now.toLocalDate();
+      start = now.toLocalTime().toString();
+      LocalDateTime finish = date.atTime(now.toLocalTime()).plusHours(1);
+      endDate = finish.toLocalDate();
+      end = finish.toLocalTime().toString();
+    }
+    if (mode == 1) undated = false;
+    updateDate();
     feedback.setText("");
     renderModes();
   }
@@ -175,8 +193,15 @@ final class TaskEditor extends Dialog {
       host.weighted(modes, b);
     }
     times.removeAllViews();
+    updateDate();
+    times.addView(host.button("结束日    " + (mode == 0 && undated ? "未设置" : endDate), () -> {
+      new DatePickerDialog(host, (v,y,m,d) -> {
+        endDate = LocalDate.of(y,m+1,d); undated = false; renderModes();
+      }, endDate.getYear(), endDate.getMonthValue()-1, endDate.getDayOfMonth()).show();
+    }));
     if (mode == 0) {
-      TextView caption = host.text("不设时间，默认全天", 12, host.MUTED);
+      times.addView(host.button("清除日期", () -> { undated = true; date = LocalDate.now(); endDate = date; renderModes(); }));
+      TextView caption = host.text("未设置日期的待办会顺延，直到完成", 12, host.MUTED);
       caption.setPadding(0, host.dp(10), 0, 0);
       times.addView(caption);
       return;
@@ -204,7 +229,7 @@ final class TaskEditor extends Dialog {
         current.isEmpty()
             ? (ending && !start.isEmpty()
                 ? LocalTime.parse(start).plusHours(1)
-                : LocalTime.of(9, 0))
+                : LocalTime.now())
             : (current.equals("24:00") ? LocalTime.MIDNIGHT : LocalTime.parse(current));
     new TimePickerDialog(
             host,
@@ -256,13 +281,19 @@ final class TaskEditor extends Dialog {
     }
     String from = mode == 0 ? "" : start, to = mode == 1 ? end : "";
     try {
-      Store.validateTimes(from, to);
+      TaskDates.validate(date.toString(), endDate.toString(), from, to);
+      if (mode == 1) {
+        boolean unchanged = existing != null && date.toString().equals(existing.optString("date"))
+            && from.equals(existing.optString("time"));
+        if (!unchanged && date.atTime(LocalTime.parse(from)).isBefore(LocalDateTime.now().withSecond(0).withNano(0)))
+          throw new IllegalArgumentException("开始时间不能早于当前本机时间");
+      }
     } catch (Exception e) {
       feedback.setText(e.getMessage());
       return;
     }
     if (host.saveTask(
-        existing, title, note.getText().toString().trim(), date.toString(), from, to, priority))
+        existing, title, note.getText().toString().trim(), date.toString(), from, to, priority, endDate.toString(), mode == 0 && undated))
       dismiss();
   }
 
@@ -272,6 +303,8 @@ final class TaskEditor extends Dialog {
     b.putString("title", name.getText().toString());
     b.putString("note", note.getText().toString());
     b.putString("date", date.toString());
+    b.putString("endDate", endDate.toString());
+    b.putBoolean("undated", undated);
     b.putString("start", start);
     b.putString("end", end);
     b.putInt("mode", mode);

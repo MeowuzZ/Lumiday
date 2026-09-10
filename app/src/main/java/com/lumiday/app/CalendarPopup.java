@@ -29,7 +29,9 @@ final class CalendarPopup extends Dialog {
     getWindow().setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
     getWindow().setDimAmount(.12f);
     setOnDismissListener(d -> {
+      if (calendar.animation != null) calendar.animation.cancel();
       host.root.setRenderEffect(null);
+      host.show();
       host.calendarPopup = null;
     });
   }
@@ -54,11 +56,12 @@ final class CalendarPopup extends Dialog {
   }
 
   final class GestureFrame extends FrameLayout {
-    float downY;
+    float downY, initialCollapse;
     boolean dragging;
     GestureFrame() { super(host); }
     @Override public boolean onInterceptTouchEvent(MotionEvent e) {
-      if (e.getActionMasked() == MotionEvent.ACTION_DOWN) { downY = e.getY(); dragging = false; }
+      if (e.getActionMasked() == MotionEvent.ACTION_DOWN) { downY = e.getY(); initialCollapse = calendar.collapse; dragging = false;
+        if (calendar.animation != null) calendar.animation.cancel(); }
       if (e.getActionMasked() == MotionEvent.ACTION_MOVE && Math.abs(e.getY()-downY) > host.dp(12)) {
         dragging = true;
         return true;
@@ -68,14 +71,12 @@ final class CalendarPopup extends Dialog {
     @Override public boolean onTouchEvent(MotionEvent e) {
       if (e.getActionMasked() == MotionEvent.ACTION_MOVE) {
         float dy = e.getY()-downY;
-        if (Math.abs(dy) > host.dp(28)) {
-          calendar.setMonth(dy > 0);
-          downY = e.getY();
-        }
+        calendar.setCollapse(initialCollapse - dy / host.dp(280));
         return true;
       }
       if (e.getActionMasked() == MotionEvent.ACTION_UP || e.getActionMasked() == MotionEvent.ACTION_CANCEL) {
         dragging = false;
+        calendar.setMonth(calendar.collapse < .5f);
         return true;
       }
       return true;

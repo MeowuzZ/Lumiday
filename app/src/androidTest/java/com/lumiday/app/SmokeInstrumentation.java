@@ -56,12 +56,12 @@ public class SmokeInstrumentation extends Instrumentation {
           new JSONObject(
               "{\"schemaVersion\":2,\"tasks\":[{\"id\":\"old\",\"title\":\"旧任务\",\"date\":\"2026-09-10\",\"time\":\"09:00\"}],\"habits\":[{\"id\":\"old-habit\",\"title\":\"喝水\",\"target\":3,\"logs\":{\"2026-09-09\":2}}]}");
       s.restore(legacy.toString());
-      check(s.data.getInt("schemaVersion") == 4, "v2 migration");
+      check(s.data.getInt("schemaVersion") == 5, "v2 migration");
       check(
           s.habits().getJSONObject(0).getJSONObject("logs").getInt("2026-09-09") == 2,
           "legacy archive retained");
       legacy.put("schemaVersion", 1);
-      check(Store.validate(legacy.toString()).getInt("schemaVersion") == 4, "v1 migration");
+      check(Store.validate(legacy.toString()).getInt("schemaVersion") == 5, "v1 migration");
       rejected("", "10:00");
       rejected("10:00", "09:00");
       rejected("10:00", "10:00");
@@ -69,6 +69,17 @@ public class SmokeInstrumentation extends Instrumentation {
       Store.validateTimes("", "");
       rejected("09:00", "");
       Store.validateTimes("09:00", "10:00");
+      JSONObject overnight = new JSONObject().put("id","overnight").put("title","跨夜日程")
+          .put("date","2026-09-10").put("endDate","2026-09-11").put("time","23:00").put("endTime","01:00");
+      TaskDates.validate("2026-09-10","2026-09-11","23:00","01:00");
+      check(TaskDates.occurs(overnight,LocalDate.parse("2026-09-11")),"overnight visible next day");
+      check(TaskDates.from(overnight,LocalDate.parse("2026-09-11"))==0 && TaskDates.to(overnight,LocalDate.parse("2026-09-10"))==1440,"overnight clipped at midnight");
+      overnight.put("endTime","00:00");
+      check(!TaskDates.occurs(overnight,LocalDate.parse("2026-09-11")),"midnight endpoint excluded");
+      JSONObject rolling = new JSONObject().put("date",LocalDate.now().minusDays(3).toString()).put("undated",true);
+      check(TaskDates.occurs(rolling,LocalDate.now()),"undated unfinished rolls forward");
+      rolling.put("done",true).put("completedDate",LocalDate.now().minusDays(1).toString());
+      check(!TaskDates.occurs(rolling,LocalDate.now()),"completed undated stops rolling");
       boolean rejected = false;
       try {
         s.restore("{\"schemaVersion\":99,\"tasks\":[]}");
@@ -89,7 +100,8 @@ public class SmokeInstrumentation extends Instrumentation {
       runOnMainSync(
           () -> {
             a.store = s;
-            a.selected = LocalDate.now();
+            a.selected = LocalDate.now().plusDays(1);
+            a.tab = 1;
             a.show();
           });
       runOnMainSync(
@@ -103,6 +115,7 @@ public class SmokeInstrumentation extends Instrumentation {
             check(a.editor.isShowing(), "plus opens editor directly");
             check(a.editor.mode == 0, "new task defaults to all-day");
             a.editor.name.setText("整理本周计划");
+            a.editor.undated = false;
             a.editor.submit();
             check(
                 s.tasks().length() == 1 && s.tasks().optJSONObject(0).optString("time").isEmpty(),
@@ -110,6 +123,7 @@ public class SmokeInstrumentation extends Instrumentation {
             a.editTask(null);
             a.editor.name.setText("项目讨论");
             a.editor.chooseMode(1);
+            a.editor.endDate = a.editor.date;
             a.editor.start = "14:00";
             a.editor.end = "13:00";
             a.editor.submit();
@@ -119,6 +133,7 @@ public class SmokeInstrumentation extends Instrumentation {
             a.editTask(null);
             a.editor.name.setText("阅读与记录");
             a.editor.chooseMode(1);
+            a.editor.endDate = a.editor.date;
             a.editor.start = "09:00";
             a.editor.end = "10:00";
             a.editor.submit();
@@ -135,6 +150,7 @@ public class SmokeInstrumentation extends Instrumentation {
                 "all-day clears both times");
             a.editTask(range);
             a.editor.chooseMode(1);
+            a.editor.endDate = a.editor.date;
             a.editor.start = "14:00";
             a.editor.end = "15:30";
             a.editor.submit();
@@ -142,6 +158,7 @@ public class SmokeInstrumentation extends Instrumentation {
             a.editor.name.setText("未保存草稿");
             a.editor.note.setText("草稿备注");
             a.editor.chooseMode(1);
+            a.editor.endDate = a.editor.date;
             a.editor.start = "10:00";
             a.editor.end = "11:00";
             Bundle draft = a.editor.draft();
@@ -226,7 +243,7 @@ public class SmokeInstrumentation extends Instrumentation {
             a.selected = LocalDate.now().plusDays(9);
             a.show();
             check(a.calendar == null, "today has no calendar");
-            check(a.tasks().size() == 3, "today ignores selected agenda date");
+            check(a.tasks().isEmpty(), "today excludes future dated tasks despite selected agenda date");
             a.tab = 2;
             a.show();
             check(a.calendar == null, "quadrants have no calendar");
@@ -328,6 +345,32 @@ public class SmokeInstrumentation extends Instrumentation {
       });
       Thread.sleep(200);
       screenshot("timeline-v22.png");
+      runOnMainSync(() -> {
+        TimelineScroll scroll = (TimelineScroll)a.stage.getChildAt(0);
+        scroll.zoomBy(.001f, a.dp(100));
+        check(Math.abs(a.timeline.hourHeight * 15 - (scroll.getHeight()-a.dp(36))) < 2, "minimum zoom fits fifteen hours");
+        scroll.zoomBy(1000, a.dp(100));
+        check(Math.abs(a.timeline.hourHeight * 2 - (scroll.getHeight()-a.dp(36))) < 2, "maximum zoom fits two hours");
+        scroll.zoomBy(.001f, a.dp(100));
+      });
+      Thread.sleep(150);
+      runOnMainSync(() -> ((ScrollView)a.stage.getChildAt(0)).scrollTo(0,a.timeline.getTop()+Math.round(a.timeline.hourHeight*6)));
+      Thread.sleep(150);
+      screenshot("timeline-zoom-v24.png");
+      runOnMainSync(() -> {
+        JSONObject span = new JSONObject();
+        a.put(span,"id","span-demo");a.put(span,"title","准备项目发布");
+        a.put(span,"date",LocalDate.now().minusDays(1).toString());
+        a.put(span,"endDate",LocalDate.now().plusDays(2).toString());
+        a.put(span,"time","");a.put(span,"endTime","");a.put(span,"priority",3);
+        s.tasks().put(span);
+        a.editTask(null); a.editor.name.setText("不允许过去时间");a.editor.chooseMode(1);
+            a.editor.endDate = a.editor.date;
+        a.editor.date=LocalDate.now().minusDays(1);a.editor.endDate=LocalDate.now().minusDays(1);
+        a.editor.start="09:00";a.editor.end="10:00";
+        int count=s.tasks().length();a.editor.submit();
+        check(a.editor.isShowing() && count==s.tasks().length(),"past start rejected");a.editor.dismiss();
+      });
       runOnMainSync(
           () -> {
             a.overview = true;
@@ -344,6 +387,12 @@ public class SmokeInstrumentation extends Instrumentation {
       });
       Thread.sleep(500);
       screenshot("calendar-popup-v23.png");
+      runOnMainSync(() -> {
+        a.calendarPopup.calendar.setCollapse(.5f);
+        check(a.calendarPopup.calendar.rows.get(0).getAlpha() < 1,"other weeks fade continuously");
+      });
+      Thread.sleep(100);
+      screenshot("calendar-mid-v24.png");
       runOnMainSync(() -> a.calendarPopup.calendar.setMonth(false));
       Thread.sleep(500);
       screenshot("calendar-week-v23.png");
