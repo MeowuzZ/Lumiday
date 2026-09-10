@@ -335,13 +335,29 @@ public class SmokeInstrumentation extends Instrumentation {
           });
       Thread.sleep(200);
       screenshot("calendar-month-v22.png");
+      runOnMainSync(() -> {
+        a.overview = false;
+        a.show();
+        a.calendarPopup = new CalendarPopup(a, a.root.getChildAt(0));
+        a.calendarPopup.show();
+        check(a.calendarPopup.isShowing(), "calendar overlay opens");
+      });
+      Thread.sleep(500);
+      screenshot("calendar-popup-v23.png");
+      runOnMainSync(() -> a.calendarPopup.calendar.setMonth(false));
+      Thread.sleep(500);
+      screenshot("calendar-week-v23.png");
+      runOnMainSync(() -> {
+        check(!a.calendarPopup.calendar.month, "calendar collapses to week");
+        a.calendarPopup.dismiss();
+      });
       runOnMainSync(
           () -> {
             a.tab = 3;
             a.show();
           });
       Thread.sleep(350);
-      screenshot("leaves-v22.png");
+      screenshot("settings-v23.png");
       runOnMainSync(
           () -> {
             a.tab = 0;

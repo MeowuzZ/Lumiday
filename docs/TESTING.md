@@ -28,3 +28,7 @@ PASS: v1/v2/v3 backups, legacy archive, all-day/start/range editor, invalid rang
 ## 2.2 验证
 
 Android 16.1 模拟器：assembleDebug、assembleAndroidTest、lintDebug 和设备回归测试通过。验证重叠日程分轨、实际图块测量尺寸、点击详情、长按完成、全天 / 起止时间编辑、历史备份迁移。人工核对 timeline-v22.png、calendar-month-v22.png、leaves-v22.png；时间轴四路重叠色块正确按时长显示。此前 2.0 的仅开始时间模式已移除。未进行实体手机性能测试。
+
+## 2.3 验证
+
+构建、Lint、Android 16.1 模拟器回归通过。新增日历浮层打开和月周切换检查，核对模糊背景及原图艺术字。设置素材来自用户提供的 settings.jpg，以画布展示文字区域并在边缘融合背景。

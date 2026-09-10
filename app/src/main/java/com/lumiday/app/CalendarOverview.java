@@ -28,6 +28,15 @@ final class CalendarOverview {
     return result;
   }
 
+  void setMonth(boolean value) {
+    if (month == value) return;
+    android.transition.AutoTransition transition = new android.transition.AutoTransition();
+    transition.setDuration(320);
+    android.transition.TransitionManager.beginDelayedTransition(parent, transition);
+    month = value;
+    render();
+  }
+
   void render() {
     parent.removeAllViews();
     LinearLayout card = host.card(parent);
@@ -45,8 +54,7 @@ final class CalendarOverview {
         host.button(
             host.selected.getYear() + " 年 " + host.selected.getMonthValue() + " 月",
             () -> {
-              month = !month;
-              render();
+              setMonth(!month);
             }));
     controls.addView(
         host.icon(
@@ -63,16 +71,14 @@ final class CalendarOverview {
         host.button(
             "月",
             () -> {
-              month = true;
-              render();
+              setMonth(true);
             }));
     host.weighted(
         modes,
         host.button(
             "周",
             () -> {
-              month = false;
-              render();
+              setMonth(false);
             }));
     card.addView(modes);
     LinearLayout week = host.row();
@@ -93,7 +99,7 @@ final class CalendarOverview {
         LinearLayout cell = host.vertical();
         cell.setPadding(host.dp(2), host.dp(5), host.dp(2), host.dp(5));
         LinearLayout.LayoutParams lp =
-            new LinearLayout.LayoutParams(0, host.dp(month ? 102 : 188), 1);
+            new LinearLayout.LayoutParams(0, host.dp(month ? 88 : 188), 1);
         line.addView(cell, lp);
         cell.setBackground(host.shape(date.equals(host.selected) ? 0xffedf3e7 : Color.WHITE, 6));
         TextView number =
@@ -127,6 +133,7 @@ final class CalendarOverview {
   }
 
   void openDay(LocalDate day) {
+    if (host.calendarPopup != null) host.calendarPopup.dismiss();
     host.selected = day;
     host.overview = false;
     host.show();

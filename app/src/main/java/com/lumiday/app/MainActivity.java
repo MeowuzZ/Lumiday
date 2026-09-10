@@ -199,7 +199,8 @@ public class MainActivity extends Activity {
   SettingsScene settingsScene;
   boolean overview;
   TimelineView timeline;
-  AlertDialog detailsDialog;
+  android.app.Dialog detailsDialog;
+  CalendarPopup calendarPopup;
 
   void show() {
     animating = false;
@@ -237,8 +238,8 @@ public class MainActivity extends Activity {
     if (tab == 1)
       title.setOnClickListener(
           v -> {
-            overview = !overview;
-            show();
+            calendarPopup = new CalendarPopup(this, title);
+            calendarPopup.show();
           });
     titles.addView(title);
     weighted(header, titles);
@@ -494,14 +495,31 @@ public class MainActivity extends Activity {
     if (!task.optString("legacyStartTime").isEmpty())
       panel.addView(text("原开始时间：" + task.optString("legacyStartTime"), 13, MUTED));
     panel.addView(text(task.optBoolean("done") ? "已完成" : "未完成", 14, MUTED));
-    detailsDialog =
-        new AlertDialog.Builder(this)
-            .setTitle(task.optString("title"))
-            .setView(panel)
-            .setPositiveButton("编辑", (d, w) -> editTask(task))
-            .setNeutralButton("删除", (d, w) -> removeTask(task))
-            .setNegativeButton("关闭", null)
-            .show();
+    detailsDialog = new android.app.Dialog(this);
+    panel.setBackground(shape(BG, 28));
+    TextView heading = text(task.optString("title"), 24, INK);
+    heading.setTypeface(null, Typeface.BOLD);
+    panel.addView(heading, 0);
+    space(panel, 20);
+    TextView edit = button("编辑", () -> {
+      detailsDialog.dismiss();
+      if (calendarPopup != null) calendarPopup.dismiss();
+      editTask(task);
+    });
+    edit.setBackground(shape(GREEN, 20));
+    edit.setTextColor(Color.WHITE);
+    panel.addView(edit, new LinearLayout.LayoutParams(-1, dp(54)));
+    panel.addView(button("删除", () -> { detailsDialog.dismiss();
+      if (calendarPopup != null) calendarPopup.dismiss();
+      removeTask(task); }));
+    panel.addView(button("关闭", () -> detailsDialog.dismiss()));
+    detailsDialog.setContentView(panel);
+    Window window = detailsDialog.getWindow();
+    window.setBackgroundDrawableResource(android.R.color.transparent);
+    window.setGravity(Gravity.BOTTOM);
+    window.setDimAmount(.35f);
+    detailsDialog.show();
+    window.setLayout(-1, -2);
   }
 
   void completeTask(JSONObject task) {

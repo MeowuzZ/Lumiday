@@ -155,12 +155,15 @@ final class SettingsScene extends FrameLayout {
 
   final class Typography extends View {
     final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    final String[] words = {"时间", "只", "属于", "你"};
+    final String[] words = {"时间", "只属", "于你"};
+    Bitmap artwork;
 
     Typography() {
       super(host);
       setContentDescription("时间只属于你");
-      paint.setTypeface(Typeface.create("serif", Typeface.NORMAL));
+      try (java.io.InputStream input = host.getAssets().open("settings-reference.jpg")) {
+        artwork = BitmapFactory.decodeStream(input);
+      } catch (java.io.IOException e) { throw new IllegalStateException(e); }
     }
 
     @Override
@@ -172,6 +175,24 @@ final class SettingsScene extends FrameLayout {
       paint.setAlpha(255);
       canvas.drawRect(0, 0, w, h, paint);
       paint.setShader(null);
+      if (artwork != null) {
+        float width = w, height = width * 1.05833f;
+        float top = (h - height) / 2 - progress * host.dp(60);
+        paint.setShader(null);
+        paint.setAlpha(Math.round(255 * Math.max(0, 1 - progress * 1.5f)));
+        int layer = canvas.saveLayer(0, top, w, top + height, null);
+        canvas.drawBitmap(artwork, new Rect(0, 180, 1200, 1450),
+            new RectF(0, top, w, top+height), paint);
+        paint.setAlpha(255);
+        paint.setShader(new LinearGradient(0, top, 0, top+height,
+            new int[] {0x00ffffff, 0xffffffff, 0xffffffff, 0x00ffffff},
+            new float[] {0, .1f, .9f, 1}, Shader.TileMode.CLAMP));
+        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
+        canvas.drawRect(0, top, w, top+height, paint);
+        paint.setXfermode(null);
+        paint.setShader(null);
+        canvas.restoreToCount(layer);
+      }
       for (int leaf = 0; leaf < 14; leaf++) {
         float travel = (phase + leaf * .07143f) % 1f;
         float x = w * ((leaf * .273f) % 1f) + (float) Math.sin(travel * 6.28 + leaf) * w * .10f;
@@ -179,7 +200,7 @@ final class SettingsScene extends FrameLayout {
         canvas.save();
         canvas.translate(x, y);
         canvas.rotate((float) Math.sin(travel * 6.28 + leaf) * 55 + 25);
-        float length = host.dp(10 + leaf % 4 * 4);
+        float length = host.dp(5 + leaf % 4 * 2);
         Path shape = new Path();
         shape.moveTo(0, -length);
         shape.cubicTo(length, -length * .3f, length * .6f, length * .65f, 0, length);
@@ -189,29 +210,7 @@ final class SettingsScene extends FrameLayout {
         canvas.drawPath(shape, paint);
         canvas.restore();
       }
-      float size = Math.min(w * .27f, h * .14f), line = size * 1.2f;
-      float first = (h - line * 3) / 2;
-      paint.setTextSize(size);
-      paint.setTextAlign(Paint.Align.CENTER);
-      float wave = (float) Math.sin(phase * Math.PI * 2);
-      paint.setShader(
-          new LinearGradient(
-              0,
-              h * (.15f + phase * .4f),
-              w,
-              h * (.85f + phase * .4f),
-              new int[] {0xff9eaf69, 0xff5d9475, 0xff245c43},
-              null,
-              Shader.TileMode.MIRROR));
-      for (int i = 0; i < words.length; i++) {
-        float fade = Math.max(0, 1 - progress * 1.5f);
-        paint.setAlpha(Math.round(255 * fade));
-        float breathe = (float) Math.sin(phase * Math.PI * 2 + i * .35f) * host.dp(3);
-        Paint.FontMetrics fm = paint.getFontMetrics();
-        float baseline = first + i * line - (fm.ascent + fm.descent) / 2;
-        canvas.drawText(
-            words[i], w / 2, baseline + breathe - progress * host.dp(45 + i * 12), paint);
-      }
+
     }
   }
 }
