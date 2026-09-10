@@ -35,7 +35,7 @@ final class TaskEditor extends Dialog {
     start = t.optString("time");
     end = t.optString("endTime");
     priority = t.optInt("priority");
-    mode = start.isEmpty() ? 0 : end.isEmpty() ? 1 : 2;
+    mode = start.isEmpty() ? 0 : 1;
     if (restored != null) {
       date = LocalDate.parse(restored.getString("date"));
       start = restored.getString("start");
@@ -164,8 +164,8 @@ final class TaskEditor extends Dialog {
 
   void renderModes() {
     modes.removeAllViews();
-    String[] labels = {"全天待办", "开始时间", "时间段"};
-    for (int i = 0; i < 3; i++) {
+    String[] labels = {"全天待办", "时间日程"};
+    for (int i = 0; i < 2; i++) {
       final int value = i;
       TextView b = host.button(labels[i], () -> chooseMode(value));
       b.setTextSize(13);
@@ -184,10 +184,17 @@ final class TaskEditor extends Dialog {
     startButton = host.button("开始    " + (start.isEmpty() ? "选择时间" : start), () -> pick(false));
     startButton.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
     times.addView(startButton);
-    if (mode == 2) {
+    if (mode == 1) {
       endButton = host.button("结束    " + (end.isEmpty() ? "选择时间" : end), () -> pick(true));
       endButton.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
       times.addView(endButton);
+      times.addView(
+          host.button(
+              "结束于 24:00",
+              () -> {
+                end = "24:00";
+                renderModes();
+              }));
     }
   }
 
@@ -198,7 +205,7 @@ final class TaskEditor extends Dialog {
             ? (ending && !start.isEmpty()
                 ? LocalTime.parse(start).plusHours(1)
                 : LocalTime.of(9, 0))
-            : LocalTime.parse(current);
+            : (current.equals("24:00") ? LocalTime.MIDNIGHT : LocalTime.parse(current));
     new TimePickerDialog(
             host,
             (v, h, m) -> {
@@ -243,11 +250,11 @@ final class TaskEditor extends Dialog {
       feedback.setText("请选择开始时间");
       return;
     }
-    if (mode == 2 && end.isEmpty()) {
+    if (mode == 1 && end.isEmpty()) {
       feedback.setText("请选择结束时间");
       return;
     }
-    String from = mode == 0 ? "" : start, to = mode == 2 ? end : "";
+    String from = mode == 0 ? "" : start, to = mode == 1 ? end : "";
     try {
       Store.validateTimes(from, to);
     } catch (Exception e) {

@@ -56,18 +56,18 @@ public class SmokeInstrumentation extends Instrumentation {
           new JSONObject(
               "{\"schemaVersion\":2,\"tasks\":[{\"id\":\"old\",\"title\":\"旧任务\",\"date\":\"2026-09-10\",\"time\":\"09:00\"}],\"habits\":[{\"id\":\"old-habit\",\"title\":\"喝水\",\"target\":3,\"logs\":{\"2026-09-09\":2}}]}");
       s.restore(legacy.toString());
-      check(s.data.getInt("schemaVersion") == 3, "v2 migration");
+      check(s.data.getInt("schemaVersion") == 4, "v2 migration");
       check(
           s.habits().getJSONObject(0).getJSONObject("logs").getInt("2026-09-09") == 2,
           "legacy archive retained");
       legacy.put("schemaVersion", 1);
-      check(Store.validate(legacy.toString()).getInt("schemaVersion") == 3, "v1 migration");
+      check(Store.validate(legacy.toString()).getInt("schemaVersion") == 4, "v1 migration");
       rejected("", "10:00");
       rejected("10:00", "09:00");
       rejected("10:00", "10:00");
       rejected("25:00", "");
       Store.validateTimes("", "");
-      Store.validateTimes("09:00", "");
+      rejected("09:00", "");
       Store.validateTimes("09:00", "10:00");
       boolean rejected = false;
       try {
@@ -109,7 +109,7 @@ public class SmokeInstrumentation extends Instrumentation {
                 "all-day saved");
             a.editTask(null);
             a.editor.name.setText("项目讨论");
-            a.editor.chooseMode(2);
+            a.editor.chooseMode(1);
             a.editor.start = "14:00";
             a.editor.end = "13:00";
             a.editor.submit();
@@ -120,6 +120,7 @@ public class SmokeInstrumentation extends Instrumentation {
             a.editor.name.setText("阅读与记录");
             a.editor.chooseMode(1);
             a.editor.start = "09:00";
+            a.editor.end = "10:00";
             a.editor.submit();
             check(
                 a.tasks().get(1).optString("time").equals("09:00"),
@@ -133,14 +134,14 @@ public class SmokeInstrumentation extends Instrumentation {
                 range.optString("time").isEmpty() && range.optString("endTime").isEmpty(),
                 "all-day clears both times");
             a.editTask(range);
-            a.editor.chooseMode(2);
+            a.editor.chooseMode(1);
             a.editor.start = "14:00";
             a.editor.end = "15:30";
             a.editor.submit();
             a.editTask(null);
             a.editor.name.setText("未保存草稿");
             a.editor.note.setText("草稿备注");
-            a.editor.chooseMode(2);
+            a.editor.chooseMode(1);
             a.editor.start = "10:00";
             a.editor.end = "11:00";
             Bundle draft = a.editor.draft();
@@ -289,10 +290,68 @@ public class SmokeInstrumentation extends Instrumentation {
           });
       Thread.sleep(200);
       screenshot("home-v21.png");
+      runOnMainSync(
+          () -> {
+            a.tab = 1;
+            a.selected = LocalDate.now();
+            a.overview = false;
+            for (int i = 0; i < 3; i++) {
+              JSONObject task = new JSONObject();
+              a.put(task, "id", "overlap-" + i);
+              a.put(task, "title", new String[] {"课程讨论", "项目评审", "笔记整理"}[i]);
+              a.put(task, "date", a.selected.toString());
+              a.put(task, "time", new String[] {"13:00", "14:00", "14:30"}[i]);
+              a.put(task, "endTime", new String[] {"15:00", "16:00", "15:30"}[i]);
+              a.put(task, "priority", 3 - i);
+              s.tasks().put(task);
+            }
+            a.show();
+            java.util.ArrayList<TimelineView.Slot> slots = TimelineView.arrange(a.tasks());
+            for (int i = 0; i < slots.size(); i++)
+              for (int j = i + 1; j < slots.size(); j++) {
+                TimelineView.Slot x = slots.get(i), y = slots.get(j);
+                if (x.start < y.end && y.start < x.end)
+                  check(x.lane != y.lane, "overlapping events occupy different lanes");
+              }
+            check(slots.stream().anyMatch(x -> x.lanes >= 3), "three-way overlaps split lanes");
+            a.timeline.getChildAt(0).performClick();
+            check(a.detailsDialog.isShowing(), "tap opens details");
+            a.detailsDialog.dismiss();
+            a.timeline.getChildAt(0).performLongClick();
+            check(a.tasks().stream().anyMatch(t -> t.optBoolean("done")), "long press completes");
+          });
+      Thread.sleep(2500);
+      runOnMainSync(() -> {
+        check(a.timeline.getChildAt(0).getWidth() > a.dp(40), "timeline blocks measured at visible width");
+        check(a.timeline.getChildAt(0).getHeight() > a.dp(40), "timeline duration measured");
+        ((ScrollView) a.stage.getChildAt(0)).scrollTo(0, a.timeline.getTop() + a.dp(12 * 76));
+      });
+      Thread.sleep(200);
+      screenshot("timeline-v22.png");
+      runOnMainSync(
+          () -> {
+            a.overview = true;
+            a.show();
+          });
+      Thread.sleep(200);
+      screenshot("calendar-month-v22.png");
+      runOnMainSync(
+          () -> {
+            a.tab = 3;
+            a.show();
+          });
+      Thread.sleep(350);
+      screenshot("leaves-v22.png");
+      runOnMainSync(
+          () -> {
+            a.tab = 0;
+            a.overview = false;
+            a.show();
+          });
       result.putString(
           "stream",
           "PASS: today-only, quadrant add priorities, immersive sentence, swipe reveal, v1/v2/v3"
-              + " backups, legacy archive, all-day/start/range editor, invalid ranges,"
+              + " backups, legacy archive, all-day/range editor, timeline dimensions and overlap lanes, details and long press, invalid ranges,"
               + " cancellation, chronological order, four icon tabs, calendar animation, draggable"
               + " overlay, persistence\n");
       exitCode = Activity.RESULT_OK;

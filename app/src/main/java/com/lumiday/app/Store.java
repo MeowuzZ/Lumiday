@@ -22,7 +22,7 @@ final class Store {
     else
       data =
           new JSONObject()
-              .put("schemaVersion", 3)
+              .put("schemaVersion", 4)
               .put("tasks", new JSONArray())
               .put("habits", new JSONArray());
   }
@@ -30,7 +30,7 @@ final class Store {
   static JSONObject validate(String raw) throws Exception {
     JSONObject d = new JSONObject(raw);
     int v = d.optInt("schemaVersion", 1);
-    if (v < 1 || v > 3) throw new IOException("此备份版本不受支持，请使用更新版 Lumiday");
+    if (v < 1 || v > 4) throw new IOException("此备份版本不受支持，请使用更新版 Lumiday");
     JSONArray ts = d.getJSONArray("tasks");
     if (!d.has("habits")) d.put("habits", new JSONArray());
     JSONArray hs = d.getJSONArray("habits");
@@ -45,6 +45,13 @@ final class Store {
         if (k == 0) {
           LocalDate.parse(o.getString("date"));
           String t = o.optString("time", "");
+          if (v < 4 && !t.isEmpty() && o.optString("endTime").isEmpty()) {
+            java.time.LocalTime.parse(t);
+            o.put("legacyStartTime", t);
+            o.put("time", "");
+            o.put("endTime", "");
+            t = "";
+          }
           validateTimes(t, o.optString("endTime", ""));
           if (o.optInt("priority", 0) < 0 || o.optInt("priority", 0) > 3)
             throw new IOException("优先级无效");
@@ -61,7 +68,7 @@ final class Store {
         }
       }
     }
-    return d.put("schemaVersion", 3);
+    return d.put("schemaVersion", 4);
   }
 
   static void validateTimes(String start, String end) throws IOException {
@@ -70,12 +77,18 @@ final class Store {
         if (!end.isEmpty()) throw new IOException("请先设置开始时间");
         return;
       }
-      java.time.LocalTime from = java.time.LocalTime.parse(start);
-      if (!end.isEmpty() && !java.time.LocalTime.parse(end).isAfter(from))
-        throw new IOException("结束时间须晚于开始时间（同一天）");
+      if (end.isEmpty()) throw new IOException("请选择结束时间");
+      int from = minutes(start), to = minutes(end);
+      if (from >= 1440 || to <= from) throw new IOException("结束时间须晚于开始时间（同一天）");
     } catch (java.time.format.DateTimeParseException e) {
       throw new IOException("时间格式无效，请使用 HH:mm");
     }
+  }
+
+  static int minutes(String time) {
+    if (time.equals("24:00")) return 1440;
+    return java.time.LocalTime.parse(time).getHour() * 60
+        + java.time.LocalTime.parse(time).getMinute();
   }
 
   JSONArray tasks() {

@@ -1,10 +1,15 @@
-# Lumiday 2.1
+# Lumiday 2.2
 
 一个专注于待办与日程的离线 Android 应用。需要 **Android 16 或更高版本**。
 
-[下载 Lumiday 2.1.0 测试安装包](downloads/Lumiday-v2.1.0-debug.apk?raw=true)
+[下载 Lumiday 2.2.0 测试安装包](downloads/Lumiday-v2.2.0-debug.apk?raw=true)
 
 ## 这一版的变化
+
+- 点击左上角“日程”进入任务月历，可切换周视图；每天显示任务色条，超出部分显示 +N。
+- 非全天日程使用 0–24 时的时间轴，按持续时间绘制色块，重叠任务等宽分轨。点击查看详情及编辑 / 删除，长按完成。
+- 时间日程必须同时设置开始和结束时间，结束可选 24:00。旧版仅开始时间任务转为全天，原时间保留在详情和备份中。
+- 设置画面使用浅绿背景、渐变衬线大字和缓慢飘落的树叶，保留滑动显现备份按钮。
 
 - 今天页不显示日历，始终展示今天的任务；在日程页查看其他日期不会改变今天页内容。
 - 仅日程页保留周 / 月日历、全天待办与按开始时间排序的日程。
@@ -15,7 +20,7 @@
 
 首次使用沉浸全屏时，Android 可能显示一次系统自带的退出全屏提示，不属于应用页面内容。
 
-保持 v2 的纯图标导航、可拖动悬浮添加、全天 / 开始时间 / 同日起止时间、离线存储和 v1–v3 备份兼容。悬浮按钮不申请跨应用覆盖权限。
+保持 v2 的纯图标导航、可拖动悬浮添加、全天 / 同日起止时间、离线存储和 v1–v4 备份兼容。悬浮按钮不申请跨应用覆盖权限。
 
 ## 安装与升级
 
@@ -23,7 +28,7 @@
 
 这是测试签名版本。GitHub Actions 的 debug 包可能使用不同证书，不能保证覆盖安装本机生成的 APK。正式发布需配置长期保管的 release 签名密钥；密钥不得提交到仓库。
 
-全部数据储存在应用内部，应用没有网络权限、账号或云同步。备份支持 v1、v2、v3；未知未来格式会被拒绝，导入前会确认并保存恢复前快照。详见 [备份说明](docs/BACKUP.md)。
+全部数据储存在应用内部，应用没有网络权限、账号或云同步。备份支持 v1、v2、v3、v4；未知未来格式会被拒绝，导入前会确认并保存恢复前快照。详见 [备份说明](docs/BACKUP.md)。
 
 ## 构建
 
@@ -43,3 +48,5 @@ adb shell am instrument -w com.lumiday.app.test/com.lumiday.app.SmokeInstrumenta
 <img src="docs/home-v21.png" width="260" alt="今天" /> <img src="docs/quadrants-v21.png" width="260" alt="四象限" />
 
 <img src="docs/settings-intro-v21.png" width="260" alt="时间只属于你" /> <img src="docs/settings-actions-v21.png" width="260" alt="滑动后显示功能按钮" />
+
+<img src="docs/timeline-v22.png" width="260" alt="时间轴" /> <img src="docs/calendar-month-v22.png" width="260" alt="任务月历" /> <img src="docs/leaves-v22.png" width="260" alt="落叶动效" />

@@ -20,7 +20,7 @@ final class SettingsScene extends FrameLayout {
   SettingsScene(MainActivity host) {
     super(host);
     this.host = host;
-    setBackgroundColor(0xff101f1b);
+    setBackgroundColor(0xffeff6e8);
     hero = new Typography();
     addView(hero, new LayoutParams(-1, -1));
     buttons = host.vertical();
@@ -39,7 +39,7 @@ final class SettingsScene extends FrameLayout {
           host.getSharedPreferences("layout", 0).edit().clear().apply();
           Toast.makeText(host, "已重置", Toast.LENGTH_SHORT).show();
         });
-    IconView back = new IconView(host, "left", 0xffd9e5c3, "返回今天");
+    IconView back = new IconView(host, "left", 0xff376a51, "返回今天");
     back.setOnClickListener(
         v -> {
           host.tab = 0;
@@ -57,7 +57,7 @@ final class SettingsScene extends FrameLayout {
     addView(scroll, p);
     setProgress(0);
     ambient = ValueAnimator.ofFloat(0, 1);
-    ambient.setDuration(7000);
+    ambient.setDuration(28000);
     ambient.setRepeatCount(ValueAnimator.INFINITE);
     ambient.setInterpolator(new android.view.animation.LinearInterpolator());
     ambient.addUpdateListener(
@@ -69,8 +69,8 @@ final class SettingsScene extends FrameLayout {
 
   void addButton(String title, Runnable action) {
     TextView button = host.button(title, action);
-    button.setTextColor(0xffe0e9d1);
-    button.setBackground(host.shape(0xff263b31, 22));
+    button.setTextColor(0xff376a51);
+    button.setBackground(host.shape(0xffdcebd8, 22));
     LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, host.dp(62));
     p.bottomMargin = host.dp(14);
     buttons.addView(button, p);
@@ -160,13 +160,36 @@ final class SettingsScene extends FrameLayout {
     Typography() {
       super(host);
       setContentDescription("时间只属于你");
-      paint.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+      paint.setTypeface(Typeface.create("serif", Typeface.NORMAL));
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
       float w = getWidth(), h = getHeight();
-      float size = Math.min(w * .28f, h * .14f), line = size * 1.25f;
+      paint.setShader(
+          new LinearGradient(
+              0, 0, w, h, new int[] {0xffd9efdf, 0xfff9fae9}, null, Shader.TileMode.CLAMP));
+      paint.setAlpha(255);
+      canvas.drawRect(0, 0, w, h, paint);
+      paint.setShader(null);
+      for (int leaf = 0; leaf < 14; leaf++) {
+        float travel = (phase + leaf * .07143f) % 1f;
+        float x = w * ((leaf * .273f) % 1f) + (float) Math.sin(travel * 6.28 + leaf) * w * .10f;
+        float y = travel * (h + 120) - 60;
+        canvas.save();
+        canvas.translate(x, y);
+        canvas.rotate((float) Math.sin(travel * 6.28 + leaf) * 55 + 25);
+        float length = host.dp(10 + leaf % 4 * 4);
+        Path shape = new Path();
+        shape.moveTo(0, -length);
+        shape.cubicTo(length, -length * .3f, length * .6f, length * .65f, 0, length);
+        shape.cubicTo(-length * .5f, length * .3f, -length * .6f, -length * .7f, 0, -length);
+        paint.setColor(leaf % 2 == 0 ? 0xffa8bf78 : 0xff719c80);
+        paint.setAlpha(Math.round(75 * (1 - progress)));
+        canvas.drawPath(shape, paint);
+        canvas.restore();
+      }
+      float size = Math.min(w * .27f, h * .14f), line = size * 1.2f;
       float first = (h - line * 3) / 2;
       paint.setTextSize(size);
       paint.setTextAlign(Paint.Align.CENTER);
@@ -177,7 +200,7 @@ final class SettingsScene extends FrameLayout {
               h * (.15f + phase * .4f),
               w,
               h * (.85f + phase * .4f),
-              new int[] {0xfff4eed6, 0xffadcaab, 0xffd8e5b2},
+              new int[] {0xff9eaf69, 0xff5d9475, 0xff245c43},
               null,
               Shader.TileMode.MIRROR));
       for (int i = 0; i < words.length; i++) {

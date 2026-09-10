@@ -24,3 +24,7 @@ PASS: v1/v2/v3 backups, legacy archive, all-day/start/range editor, invalid rang
 - 设置页初始按钮不可见，文字语义标签为完整句子“时间只属于你”。
 - 模拟下滑手势，验证文字过渡状态和按钮显现。
 - 实际截图核对四象限颜色、分词顺序、无应用说明文字和按钮渐变终态。首次全屏的 Android 系统教学提示已单独识别。
+
+## 2.2 验证
+
+Android 16.1 模拟器：assembleDebug、assembleAndroidTest、lintDebug 和设备回归测试通过。验证重叠日程分轨、实际图块测量尺寸、点击详情、长按完成、全天 / 起止时间编辑、历史备份迁移。人工核对 timeline-v22.png、calendar-month-v22.png、leaves-v22.png；时间轴四路重叠色块正确按时长显示。此前 2.0 的仅开始时间模式已移除。未进行实体手机性能测试。

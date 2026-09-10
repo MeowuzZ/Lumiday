@@ -197,6 +197,9 @@ public class MainActivity extends Activity {
   }
 
   SettingsScene settingsScene;
+  boolean overview;
+  TimelineView timeline;
+  AlertDialog detailsDialog;
 
   void show() {
     animating = false;
@@ -231,6 +234,12 @@ public class MainActivity extends Activity {
     space(titles, 6);
     TextView title = text(new String[] {"今天", "日程", "四象限", "设置"}[tab], 29, INK);
     title.setTypeface(null, Typeface.BOLD);
+    if (tab == 1)
+      title.setOnClickListener(
+          v -> {
+            overview = !overview;
+            show();
+          });
     titles.addView(title);
     weighted(header, titles);
     if (tab == 1) {
@@ -246,7 +255,7 @@ public class MainActivity extends Activity {
     }
     root.addView(header);
     calendar = null;
-    if (tab == 1) calendar();
+    if (tab == 1 && !overview) calendar();
     stage = new FrameLayout(this);
     ScrollView scroll = new ScrollView(this);
     scroll.setClipToPadding(false);
@@ -460,40 +469,50 @@ public class MainActivity extends Activity {
   }
 
   void agenda() {
-    ArrayList<JSONObject> list = tasks();
-    section("全天待办", "不设时间");
+    if (overview) {
+      new CalendarOverview(this, body);
+      return;
+    }
+    section("全天待办", "");
     LinearLayout allDay = card(body);
     int count = 0;
-    for (JSONObject t : list)
-      if (t.optString("time").isEmpty()) {
-        task(allDay, t, true);
+    for (JSONObject task : tasks())
+      if (task.optString("time").isEmpty()) {
+        task(allDay, task, true);
         count++;
       }
     if (count == 0) empty(allDay, "没有全天待办");
-    section("时间日程", "按开始时间");
-    count = 0;
-    for (JSONObject t : list)
-      if (!t.optString("time").isEmpty()) {
-        LinearLayout line = row();
-        line.setPadding(dp(24), 0, dp(20), 0);
-        LinearLayout stamp = vertical();
-        TextView start = text(t.optString("time"), 15, GREEN);
-        start.setTypeface(null, Typeface.BOLD);
-        stamp.addView(start);
-        if (!t.optString("endTime").isEmpty())
-          stamp.addView(text(t.optString("endTime"), 12, MUTED));
-        line.addView(stamp, new LinearLayout.LayoutParams(dp(64), -2));
-        LinearLayout block = vertical();
-        block.setBackground(shape(Color.WHITE, 22));
-        block.setPadding(dp(8), 0, dp(10), 0);
-        task(block, t, true);
-        line.addView(block, new LinearLayout.LayoutParams(0, -2, 1));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.setMargins(0, dp(5), 0, dp(5));
-        body.addView(line, lp);
-        count++;
-      }
-    if (count == 0) empty(card(body), "设置开始时间后，日程会出现在这里。");
+    timeline = new TimelineView(this, tasks());
+    body.addView(timeline, new LinearLayout.LayoutParams(-1, dp(24 * 76 + 36)));
+  }
+
+  void taskDetails(JSONObject task) {
+    LinearLayout panel = vertical();
+    panel.setPadding(dp(22), dp(16), dp(22), dp(16));
+    panel.addView(text(task.optString("date") + "  " + timeLabel(task), 15, GREEN));
+    if (!task.optString("note").isEmpty()) panel.addView(text(task.optString("note"), 16, INK));
+    if (!task.optString("legacyStartTime").isEmpty())
+      panel.addView(text("原开始时间：" + task.optString("legacyStartTime"), 13, MUTED));
+    panel.addView(text(task.optBoolean("done") ? "已完成" : "未完成", 14, MUTED));
+    detailsDialog =
+        new AlertDialog.Builder(this)
+            .setTitle(task.optString("title"))
+            .setView(panel)
+            .setPositiveButton("编辑", (d, w) -> editTask(task))
+            .setNeutralButton("删除", (d, w) -> removeTask(task))
+            .setNegativeButton("关闭", null)
+            .show();
+  }
+
+  void completeTask(JSONObject task) {
+    int scrollY = stage.getChildAt(0).getScrollY();
+    JSONObject previous = snapshot();
+    put(task, "done", true);
+    if (persist(previous)) {
+      Toast.makeText(this, "任务已完成", Toast.LENGTH_SHORT).show();
+      show();
+      stage.post(() -> stage.getChildAt(0).scrollTo(0, scrollY));
+    }
   }
 
   void quadrants() {
