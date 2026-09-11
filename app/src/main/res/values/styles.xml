@@ -1,1 +1,15 @@
-<resources><style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:colorAccent">#8BAD7B</item><item name="android:windowLightStatusBar">true</item><item name="android:statusBarColor">#F3F7F0</item><item name="android:navigationBarColor">#F3F7F0</item><item name="android:windowActionModeOverlay">true</item></style></resources>
+<resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#8BAD7B</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:statusBarColor">@color/launcher_sage</item>
+        <item name="android:navigationBarColor">@color/launcher_sage</item>
+        <item name="android:windowBackground">@color/launcher_sage</item>
+        <item name="android:windowSplashScreenBackground">@color/launcher_sage</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/launcher_sage</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
