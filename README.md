@@ -4,11 +4,9 @@
 
 [下载最新 APK](https://github.com/MeowuzZ/Lumiday/releases/latest/download/Lumiday.apk)
 
-推送 main 后自动构建发布，固定链接和二维码始终指向最新版本。[发布流程](docs/RELEASE.md)
+推送 main 后自动构建发布，固定下载链接始终指向最新版本。安装包统一在 [Releases](https://github.com/MeowuzZ/Lumiday/releases) 分发。
 
-<img src="branding/lumiday-sun-icon.png" width="160" alt="阳光油画图标" /> <img src="branding/download-card.png" width="300" alt="下载二维码" />
 
-[下载二维码分享卡](branding/download-card.png) · [原始二维码](branding/download-qr.png)
 
 ## 本版功能
 
@@ -94,19 +92,29 @@
 
 [SettingsScene.java](app/src/main/java/com/lumiday/app/SettingsScene.java) 使用 Canvas 展示艺术字素材，并绘制缓慢飘落的树叶。滑动进度控制文字淡出与备份按钮显现；离开页面后停止动画。当前艺术字来自参考图，不依赖系统字体替代。
 
-[styles.xml](app/src/main/res/values/styles.xml) 将系统 SplashScreen、图标底色及状态栏、导航栏统一为 `launcher_sage`；[自适应图标](app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml) 引用阳光油画素材，避免开屏出现白色留边。素材与生成提示词见 [branding](branding/README.md)。
+[styles.xml](app/src/main/res/values/styles.xml) 将系统 SplashScreen、图标底色及状态栏、导航栏统一为 `launcher_sage`；[自适应图标](app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml) 引用阳光油画素材，避免开屏出现白色留边。应用运行所需的图标和艺术字素材保留在 `app/src/main/res` 与 `app/src/main/assets`。
 
 ### 本地存储、备份与自动发布
 
-[Store.java](app/src/main/java/com/lumiday/app/Store.java) 使用 JSON 保存任务及历史归档，通过 `AtomicFile` 写入；持久化失败时恢复内存快照。导入先验证格式，再确认替换，同时保存恢复前快照。完整字段与迁移规则见 [备份格式](docs/BACKUP.md)。
+[Store.java](app/src/main/java/com/lumiday/app/Store.java) 使用 JSON 保存任务及历史归档，通过 `AtomicFile` 写入；持久化失败时恢复内存快照。导入先验证格式，再确认替换，同时保存恢复前快照。备份格式与迁移规则见下文“本地数据与升级”。
 
-[android.yml](.github/workflows/android.yml) 在 main 推送或手动触发时构建、Lint 检查、签名并上传 `Lumiday.apk` 到 GitHub Releases。PR 仅验证，不读取签名 Secret、不发布。自动版本代码为 `10000 + github.run_number`，应用版本名由 Gradle 管理。详细流程见 [自动发布](docs/RELEASE.md)。
+[android.yml](.github/workflows/android.yml) 在 main 推送或手动触发时构建、Lint 检查、签名并上传 `Lumiday.apk` 到 GitHub Releases。PR 仅验证，不读取签名 Secret、不发布。自动版本代码为 `10000 + github.run_number`，应用版本名由 Gradle 管理。发布时从 `LUMIDAY_KEYSTORE_BASE64` Secret 恢复临时签名文件，生成 APK 与 SHA-256 校验文件，并标记最新 Release；完成后删除临时签名文件。
 
-[二维码脚本](scripts/make_download_qr.py) 先生成高纠错二维码，再在码点外围添加品牌图标、浅绿背景和外框；固定地址指向最新 Release 的同名 APK。原图、美化版及缩小版均经过解码校验。微信可能拦截 APK，遇到限制需选择“在浏览器打开”。
 
 ## 本地数据与升级
 
-所有数据保存在应用内部，无网络权限、账号或云同步。备份格式 v5，兼容 v1–v4；旧版仅开始时间记录迁移为全天，原时间保留。新字段包括结束日期、无日期待办标记和完成日期，详见 [备份说明](docs/BACKUP.md)。
+所有数据保存在应用内部，无网络权限、账号或云同步。备份格式 v5，兼容 v1–v4；旧版仅开始时间记录迁移为全天，原时间保留。新字段包括结束日期、无日期待办标记和完成日期。
+
+| 字段 | 含义 |
+| --- | --- |
+| `date` / `endDate` | 开始日 / 结束日；旧数据缺少结束日时视为同一天。 |
+| `time` / `endTime` | 起止时间，均为空时为全天待办；结束可用 `24:00`。 |
+| `undated` | 无日期全天待办标记；内部日期用于保留创建日。 |
+| `done` / `completedDate` | 完成状态 / 完成日期。 |
+| `priority` | 0 无、1 低、2 中、3 高优先级。 |
+| `legacyStartTime` | 旧版仅开始时间任务迁移时保留的原始时间。 |
+
+导入上限 10 MB；未知未来版本与无效日期时间不会覆盖当前数据。恢复前保存 `before-restore.json` 快照。旧习惯数据保留在备份中，但不再提供打卡界面。卸载会删除应用内部数据，外部导出备份应自行保存。
 
 自动发布的 `Lumiday.apk` 是 release 构建，签名沿用此前仓库 APK 的证书，可覆盖安装同源旧版。签名文件由仓库 Secret 提供，不提交到源码。验证用 debug artifact 可能使用不同证书，请优先下载 Releases 中的安装包。当前沿用的是原有 debug 签名身份；更新前建议导出备份，更换签名需要另行规划迁移。
 
@@ -121,6 +129,16 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w com.lumiday.app.test/com.lumiday.app.SmokeInstrumentation
 ```
 
-Android 16.1 模拟器通过回归与边界测试。测试使用独立数据目录。尚未完成实体手机多厂商性能验证，见 [测试记录](docs/TESTING.md)。
+Android 16.1 模拟器通过回归与边界测试。测试使用独立数据目录。尚未完成实体手机多厂商性能验证。
 
-<img src="docs/calendar-month-v24.png" width="260" alt="跨日任务月历" /> <img src="docs/calendar-mid-v24.png" width="260" alt="收缩中间状态" /> <img src="docs/timeline-zoom-v24.png" width="260" alt="时间轴最小缩放" />
+
+## 仓库结构
+
+```text
+.github/workflows/  自动构建与发布
+app/               应用源码、运行素材、设备测试
+gradle/            Gradle Wrapper
+README.md          功能说明、更新日志、构建与备份说明
+```
+
+仓库只保留软件开发与构建所需内容。历史截图、宣发素材、独立说明文档和旧 APK 已从当前目录清理；软件版本通过 Releases 下载。
