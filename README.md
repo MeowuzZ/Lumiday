@@ -1,8 +1,14 @@
-# Lumiday 2.4
+# Lumiday 2.5
 
 离线 Android 日程与待办应用，需要 **Android 16+**。
 
-[下载 Lumiday 2.4.0 测试安装包](downloads/Lumiday-v2.4.0-debug.apk?raw=true)
+[下载最新 APK](https://github.com/MeowuzZ/Lumiday/releases/latest/download/Lumiday.apk)
+
+推送 main 后自动构建发布，固定链接和二维码始终指向最新版本。[发布流程](docs/RELEASE.md)
+
+<img src="branding/lumiday-sun-icon.png" width="160" alt="阳光油画图标" /> <img src="branding/download-card.png" width="300" alt="下载二维码" />
+
+[下载二维码分享卡](branding/download-card.png) · [原始二维码](branding/download-qr.png)
 
 ## 本版功能
 
